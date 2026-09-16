@@ -58,12 +58,14 @@ if (-not (Test-Path $configPath) -or -not (Test-Path $pythonPath)) {
     throw 'Run the parent Caldova scripts/00-preflight.ps1 first.'
 }
 
-$adminPasswordSecure = Read-Host -Prompt 'HorizonDB administrator password' -AsSecureString
-$agentPasswordSecure = Read-Host -Prompt 'Set password for caldova_agent' -AsSecureString
-$adminPointer = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($adminPasswordSecure)
-$agentPointer = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($agentPasswordSecure)
-$adminPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($adminPointer)
-$agentPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($agentPointer)
+$passwordHelper = Join-Path $kitRoot 'scripts\Get-CaldovaDatabasePassword.ps1'
+$adminPassword = & $passwordHelper `
+    -ProjectRoot $kitRoot `
+    -Prompt 'HorizonDB administrator password'
+$agentPassword = & $passwordHelper `
+    -ProjectRoot $kitRoot `
+    -CredentialName 'CALDOVA_AGENT_PASSWORD' `
+    -Prompt 'Set password for caldova_agent'
 
 try {
     $env:CALDOVA_DATABASE_PASSWORD = $adminPassword
@@ -93,8 +95,6 @@ try {
 finally {
     Remove-Item Env:CALDOVA_DATABASE_PASSWORD -ErrorAction SilentlyContinue
     Remove-Item Env:CALDOVA_AGENT_PASSWORD -ErrorAction SilentlyContinue
-    if ($adminPointer -ne [IntPtr]::Zero) { [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($adminPointer) }
-    if ($agentPointer -ne [IntPtr]::Zero) { [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($agentPointer) }
     $adminPassword = $null
     $agentPassword = $null
 }

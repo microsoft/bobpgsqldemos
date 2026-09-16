@@ -24,8 +24,8 @@ tables directly.
 .\scripts\00-preflight.ps1
 ```
 
-Type the HorizonDB administrator password and a password for `caldova_agent`
-directly into the terminal. Neither password is written to disk.
+The script reads `CALDOVA_DATABASE_PASSWORD` and `CALDOVA_AGENT_PASSWORD` from
+the ignored parent `pwd.env` file. When that file is absent, it prompts securely.
 
 Preflight creates or repairs the curated views and login, then proves:
 
@@ -46,8 +46,8 @@ managed identity, and the Foundry chat deployment:
 .\scripts\01-deploy-remote-mcp.ps1 -Approve
 ```
 
-Enter the same `caldova_agent` password directly into the terminal. The script
-passes it as a secure Bicep parameter and does not write it to the azd
+The script reads the same `CALDOVA_AGENT_PASSWORD` row and passes it as a secure
+Bicep parameter. It does not write it to the azd
 environment or repository.
 
 ## Run the In-App Agent
@@ -222,7 +222,8 @@ granted to `caldova_agent` and is not exposed as an MCP tool.
 ### Secrets and Runtime Configuration
 
 - No passwords, Function keys, Foundry keys, or approval tokens are committed.
-- Database passwords are entered with secure PowerShell prompts.
+- Database passwords are loaded from the ignored parent `pwd.env` file, with
+   secure PowerShell prompts as the fallback when that file is absent.
 - Function app settings are encrypted by Azure App Service.
 - `scripts/00-preflight.ps1` synchronizes the database role password with the
   deployed Function to prevent credential drift.

@@ -22,6 +22,7 @@ $configPath = Join-Path $kitRoot '.caldova-connection.json'
 $pythonPath = Join-Path $kitRoot '.venv\Scripts\python.exe'
 $helperPath = Join-Path $PSScriptRoot 'Invoke-Demo3Pipeline.py'
 $pipelineSql = Join-Path $demoRoot 'sql\01-create-pipeline.sql'
+$parameterGroupName = 'caldova-ai-pipeline-pg17-v3'
 
 if (-not (Test-Path $configPath) -or -not (Test-Path $pythonPath)) {
     throw 'Run the parent Caldova scripts/00-preflight.ps1 first.'
@@ -58,9 +59,9 @@ if (-not $accountExists -or -not $deploymentExists) {
         -DeploymentName $EmbeddingDeployment
 }
 
-$securePassword = Read-Host -Prompt 'HorizonDB password' -AsSecureString
-$passwordPointer = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
-$plainPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($passwordPointer)
+$plainPassword = & "$kitRoot\scripts\Get-CaldovaDatabasePassword.ps1" `
+    -ProjectRoot $kitRoot `
+    -Prompt 'HorizonDB password'
 
 try {
     $env:CALDOVA_DATABASE_PASSWORD = $plainPassword
@@ -68,7 +69,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Failed to inspect HorizonDB extension settings.' }
 
     $existingExtensions = @($settings.azure_extensions -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
-    $allowedExtensions = @($existingExtensions + @('vector', 'pg_diskann', 'azure_ai', 'pg_durable') | Sort-Object -Unique) -join ','
+    $requiredExtensions = @('vector', 'pg_diskann', 'pg_textsearch', 'azure_ai', 'pg_durable')
+    $allowedExtensions = @($existingExtensions + $requiredExtensions | Sort-Object -Unique) -join ','
     $configurablePreloadLibraries = @(
         'age', 'auto_explain', 'azure_storage', 'pg_cron', 'pg_durable',
         'pg_partman_bgw', 'pg_prewarm', 'pg_stat_statements', 'pg_textsearch',
@@ -77,7 +79,7 @@ try {
     $existingLibraries = @($settings.shared_preload_libraries -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
     $preloadLibraries = @(
         $existingLibraries | Where-Object { $_ -in $configurablePreloadLibraries }
-    ) + 'pg_durable' | Sort-Object -Unique
+    ) + @('pg_durable', 'pg_textsearch') | Sort-Object -Unique
     $preloadLibraries = $preloadLibraries -join ','
 
     $currentParameterGroup = az horizondb show `
@@ -87,7 +89,8 @@ try {
         --query properties.parameterGroup.id `
         --output tsv
     if ($LASTEXITCODE -ne 0) { throw 'Failed to inspect the HorizonDB parameter group.' }
-    if ($currentParameterGroup -notmatch '/caldova-ai-pipeline-pg17$') {
+    $extensionSettingsNeedUpdate = @($requiredExtensions | Where-Object { $_ -notin $existingExtensions }).Count -gt 0
+    if ($currentParameterGroup -notmatch "/$([regex]::Escape($parameterGroupName))$" -or $extensionSettingsNeedUpdate) {
         if (-not $ApproveClusterRestart) {
             throw 'The AI pipeline parameter group is not attached. Re-run with -ApproveClusterRestart.'
         }
@@ -96,6 +99,7 @@ try {
             -ResourceGroup $ResourceGroup `
             -ClusterName $ClusterName `
             -Location $Location `
+            -ParameterGroupName $parameterGroupName `
             -AllowedExtensions $allowedExtensions `
             -SharedPreloadLibraries $preloadLibraries
     }
@@ -136,9 +140,6 @@ finally {
     Remove-Item Env:CALDOVA_FOUNDRY_ENDPOINT -ErrorAction SilentlyContinue
     Remove-Item Env:CALDOVA_FOUNDRY_KEY -ErrorAction SilentlyContinue
     Remove-Item Env:CALDOVA_EMBEDDING_DEPLOYMENT -ErrorAction SilentlyContinue
-    if ($passwordPointer -ne [IntPtr]::Zero) {
-        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($passwordPointer)
-    }
     $plainPassword = $null
     $foundryKey = $null
 }

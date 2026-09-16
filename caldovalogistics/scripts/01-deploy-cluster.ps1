@@ -37,9 +37,9 @@ Write-Host "Cluster        : $ClusterName"
 Write-Host "Location       : $Location"
 Write-Host "Compute        : $VCores vCores, $ReplicaCount readable replica(s)"
 
-$securePassword = Read-Host -Prompt 'Admin password (8-128 chars; upper, lower, number, special)' -AsSecureString
-$passwordPointer = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
-$plainPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($passwordPointer)
+$plainPassword = & "$PSScriptRoot\Get-CaldovaDatabasePassword.ps1" `
+    -ProjectRoot (Split-Path -Parent $PSScriptRoot) `
+    -Prompt 'Admin password (8-128 chars; upper, lower, number, special)'
 
 try {
     az group create `
@@ -65,9 +65,6 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Failed to create HorizonDB cluster '$ClusterName'." }
 }
 finally {
-    if ($passwordPointer -ne [IntPtr]::Zero) {
-        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($passwordPointer)
-    }
     $plainPassword = $null
 }
 
