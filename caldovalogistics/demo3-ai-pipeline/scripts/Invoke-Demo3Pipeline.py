@@ -13,7 +13,7 @@ from psycopg.rows import dict_row
 
 PIPELINE_NAME = "caldova-guide-pipeline"
 MODEL_ALIAS = "caldova-embedding"
-REQUIRED_EXTENSIONS = {"vector", "pg_diskann", "azure_ai", "pg_durable"}
+REQUIRED_EXTENSIONS = {"vector", "pg_diskann", "pg_textsearch", "azure_ai", "pg_durable"}
 
 
 def load_config(path: Path) -> dict[str, object]:
@@ -87,7 +87,7 @@ def setup(config: dict[str, object], script_path: Path) -> None:
 
     with psycopg.connect(conninfo(config), autocommit=True, row_factory=dict_row) as connection:
         with connection.cursor() as cursor:
-            for extension in ("vector", "pg_diskann", "azure_ai", "pg_durable"):
+            for extension in ("vector", "pg_diskann", "pg_textsearch", "azure_ai", "pg_durable"):
                 cursor.execute(f"CREATE EXTENSION IF NOT EXISTS {extension} CASCADE")
 
             cursor.execute("SELECT * FROM model_registry.model_list_all()")

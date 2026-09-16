@@ -12,7 +12,6 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $pythonPath = Join-Path $projectRoot '.venv\Scripts\python.exe'
 $ConnectionConfig = if ($ConnectionConfig) { $ConnectionConfig } else { Join-Path $projectRoot '.caldova-connection.json' }
-$passwordPointer = [IntPtr]::Zero
 $plainPassword = $null
 
 if (-not (Test-Path $pythonPath)) {
@@ -26,9 +25,9 @@ if ([string]::IsNullOrWhiteSpace($env:WRITE_DATABASE_URL) -or [string]::IsNullOr
         throw 'Run scripts/00-preflight.ps1 first or set WRITE_DATABASE_URL and READ_DATABASE_URL.'
     }
     $config = Get-Content $ConnectionConfig -Raw | ConvertFrom-Json
-    $securePassword = Read-Host -Prompt "Password for $($config.user)" -AsSecureString
-    $passwordPointer = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
-    $plainPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($passwordPointer)
+    $plainPassword = & "$PSScriptRoot\Get-CaldovaDatabasePassword.ps1" `
+        -ProjectRoot $projectRoot `
+        -Prompt "Password for $($config.user)"
     $env:WRITE_DATABASE_URL = "host=$($config.primaryHost) port=5432 dbname=$($config.database) user=$($config.user) password=$plainPassword sslmode=$($config.sslMode)"
     $env:READ_DATABASE_URL = "host=$($config.readerHost) port=5432 dbname=$($config.database) user=$($config.user) password=$plainPassword sslmode=$($config.sslMode)"
 }
@@ -39,8 +38,5 @@ try {
 }
 finally {
     Pop-Location
-    if ($passwordPointer -ne [IntPtr]::Zero) {
-        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($passwordPointer)
-    }
     $plainPassword = $null
 }

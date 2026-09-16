@@ -58,10 +58,12 @@ Do not put a database password in tracked files. For repeated local rehearsals,
 
 ```text
 CALDOVA_DATABASE_PASSWORD=<password>
+CALDOVA_AGENT_PASSWORD=<caldova_agent password>
 ```
 
-Preflight and the Demo 5 workload read this file when present and otherwise
-prompt securely. The password is plaintext on the local machine, so do not copy
+All demo scripts read the applicable row from this file when present and
+otherwise prompt securely. Demo 4 requires `CALDOVA_AGENT_PASSWORD`; the other
+demos use `CALDOVA_DATABASE_PASSWORD`. Passwords are plaintext on the local machine, so do not copy
 `pwd.env` to another computer or share it.
 
 ## Build the Environment
@@ -130,8 +132,8 @@ local PostgreSQL server or run `pgbench -i` for this demo.
 ./scripts/00-preflight.ps1 -Subscription 'AzureSQL_bobward'
 ```
 
-1. Prepare Demo 4. Enter the HorizonDB administrator password and desired
-    `caldova_agent` password directly into the terminal. This resets only the
+1. Prepare Demo 4. Ensure `pwd.env` contains both documented password rows.
+    This resets only the
     rehearsal recovery artifacts and synchronizes the encrypted Function
     credential when the Function already exists:
 
@@ -140,7 +142,7 @@ local PostgreSQL server or run `pgbench -i` for this demo.
 ```
 
 1. Recreate local azd state and repair/deploy the remote MCP server if needed.
-    Enter the same `caldova_agent` password:
+    The deployment reads the same `CALDOVA_AGENT_PASSWORD` row:
 
 ```powershell
 ./demo4-agent-mcp/scripts/01-deploy-remote-mcp.ps1 -Approve
@@ -210,7 +212,7 @@ This creates `.venv` inside the repository and runs tests without requiring a li
 
 ### Run the App
 
-Preflight writes `.caldova-connection.json` with password-free endpoint metadata. The run script reads it and prompts securely for the password:
+Preflight writes `.caldova-connection.json` with password-free endpoint metadata. The run script reads it and loads `CALDOVA_DATABASE_PASSWORD` from `pwd.env`, or prompts securely when the file is absent:
 
 ```powershell
 ./scripts/05-run-app.ps1
@@ -222,31 +224,42 @@ Open `http://127.0.0.1:8010` in Microsoft Edge.
 
 ### Demo 1: This Is PostgreSQL
 
-Use one connected editor, one application window, and this locked sequence:
+The application and architecture are introduced before this demo. Demo 1 is a
+behind-the-scenes code-and-SQL proof; do not reopen or operate the application.
+Use one connected editor and this locked sequence:
 
-1. Open Caldova Control Tower and identify delayed shipment `CLD-2026-0911-001` and its temperature alert.
-2. Open `sql/01-this-is-postgresql.sql` in the Microsoft PostgreSQL extension using **Caldova Primary**.
-3. Run the first two statements. Point out PostgreSQL 17, database `postgres`, and the ordinary PostgreSQL login.
-4. Run the shipment and facility queries. Show relational joins plus JSONB cargo and capability attributes.
+1. Open `app/caldova_logistics/database.py`. Show `psycopg.Connection`, `ConnectionPool`, standard connection strings, and separate write and read pools.
+2. Open `app/caldova_logistics/repository.py`. Show `create_shipment`, named parameters, JSONB construction, `ON CONFLICT`, and `RETURNING`.
+3. Open `sql/01-this-is-postgresql.sql` in the Microsoft PostgreSQL extension using **Caldova Primary**.
+4. Run the first two statements, then the shipment and facility queries. Point out PostgreSQL 17, the ordinary PostgreSQL login, relational joins, and JSONB attributes.
 5. Run the `INSERT ... ON CONFLICT ... RETURNING` statement for `CLD-2026-DEMO-003`. It is safe to rehearse repeatedly and must return one logical shipment.
 6. Run the full-text query and `EXPLAIN (ANALYZE, BUFFERS)`. Show PostgreSQL-native weighted text search before introducing vectors.
-7. Submit the same tracking number from the application. Refresh and confirm there is still one `CLD-2026-DEMO-003` shipment.
 
 Expected proof:
 
-- The application uses Python, FastAPI, psycopg 3, and standard PostgreSQL connection strings.
+- The application code uses psycopg 3, standard PostgreSQL connection strings, and parameterized SQL without a HorizonDB-specific SDK.
 - PostgreSQL SQL, transactions, constraints, JSONB, `RETURNING`, full-text search, and query plans work without a HorizonDB-specific SDK.
 - Repeating the demo is idempotent: `CLD-2026-DEMO-003` remains a single row.
 
 ### Demo 2: Scale and Make It Highly Available
 
-1. Run `sql/02-scale-and-ha.sql` through the primary connection and note the read-write endpoint behavior.
-2. Run it through several fresh reader connections and compare server address, backend PID, and read-only state. Do not use `pg_is_in_recovery()` as the replica-role proof; HorizonDB replicas use stateless compute over shared storage rather than traditional PostgreSQL streaming recovery.
-3. Explain the application routing: mutations use `WRITE_DATABASE_URL`; dashboards and retrieval use `READ_DATABASE_URL`.
-4. In Azure, show the shared-storage replica topology and stable primary/reader endpoints.
-5. For a rehearsed failover, keep the application pointed at the stable endpoints, initiate the approved failover operation, and refresh after reconnection. Do not change application connection strings during the demonstration.
+This demo shows application routing and read scale. It does not include a live
+failover.
+
+1. Return to Caldova Control Tower. Explain that shipment creation is a mutation, while the shipment dashboard and guidance search are read-heavy workflows.
+2. In the Microsoft PostgreSQL extension, show the saved **Caldova Primary** and **Caldova Reader** profiles. Both use ordinary PostgreSQL connectivity; only the endpoint differs.
+3. Open `app/caldova_logistics/repository.py`. Show `list_shipments()` using `read_connection()`, then contrast it with `create_shipment()` using `write_connection()`. These are Python repository methods, not stored procedures.
+4. Run the first statement group in `sql/02-scale-and-ha.sql` only through a fresh **Caldova Reader** connection. Point out server address, backend PID, and read-only state. Do not use `pg_is_in_recovery()` as the replica-role proof; HorizonDB replicas use stateless compute over shared storage rather than traditional PostgreSQL streaming recovery.
+5. Run the same statement group through several fresh reader connections and compare server address and backend PID.
 
 The reader endpoint balances **connections**, not individual statements. Open new reader sessions when demonstrating distribution.
+
+Expected proof:
+
+- Mutations use `WRITE_DATABASE_URL`; dashboards and retrieval use `READ_DATABASE_URL`.
+- The application keeps separate write and read pools using standard psycopg connections.
+- A standard PostgreSQL query reaches readable compute through the stable reader endpoint.
+- Readable replicas scale reads, not writes.
 
 ### Demo 3: PostgreSQL-Native AI Retrieval and Model Pipelines
 

@@ -9,7 +9,7 @@ param(
     [string]$ResourceGroup = 'caldova-logistics-rg',
     [string]$ClusterName = 'caldova-logistics',
     [string]$Location = 'westus3',
-    [string]$ParameterGroupName = 'caldova-ai-pipeline-pg17',
+    [string]$ParameterGroupName = 'caldova-ai-pipeline-pg17-v3',
     [Parameter(Mandatory)]
     [string]$AllowedExtensions,
     [Parameter(Mandatory)]
@@ -18,36 +18,27 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$parameterGroup = az horizondb parameter-group show `
+az horizondb parameter-group create `
     --subscription $Subscription `
     --resource-group $ResourceGroup `
     --name $ParameterGroupName `
-    --output json `
-    --only-show-errors 2>$null | ConvertFrom-Json
-
-if ($LASTEXITCODE -ne 0 -or -not $parameterGroup) {
-    az horizondb parameter-group create `
-        --subscription $Subscription `
-        --resource-group $ResourceGroup `
-        --name $ParameterGroupName `
-        --location $Location `
-        --version 17 `
-        --parameters `
-            "azure.extensions=$AllowedExtensions" `
-            "shared_preload_libraries=$SharedPreloadLibraries" `
-        --apply-immediately true `
-        --description 'Caldova native AI pipeline extensions' `
-        --output none
-    if ($LASTEXITCODE -ne 0) { throw "Failed to create parameter group '$ParameterGroupName'." }
-    $parameterGroupId = az horizondb parameter-group show `
-        --subscription $Subscription `
-        --resource-group $ResourceGroup `
-        --name $ParameterGroupName `
-        --query id `
-        --output tsv
-}
-else {
-    $parameterGroupId = $parameterGroup.id
+    --location $Location `
+    --version 17 `
+    --parameters `
+        "azure.extensions=$AllowedExtensions" `
+        "shared_preload_libraries=$SharedPreloadLibraries" `
+    --apply-immediately true `
+    --description 'Caldova native AI pipeline extensions' `
+    --output none
+if ($LASTEXITCODE -ne 0) { throw "Failed to create or update parameter group '$ParameterGroupName'." }
+$parameterGroupId = az horizondb parameter-group show `
+    --subscription $Subscription `
+    --resource-group $ResourceGroup `
+    --name $ParameterGroupName `
+    --query id `
+    --output tsv
+if ($LASTEXITCODE -ne 0 -or -not $parameterGroupId) {
+    throw "Failed to resolve parameter group '$ParameterGroupName'."
 }
 
 $clusterParameterGroupId = az horizondb show `

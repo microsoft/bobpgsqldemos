@@ -38,9 +38,10 @@ if ($LASTEXITCODE -ne 0 -or -not $subscriptionId) {
     throw "Unable to resolve Azure subscription '$Subscription'."
 }
 
-$agentPasswordSecure = Read-Host -Prompt 'Password for caldova_agent' -AsSecureString
-$agentPointer = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($agentPasswordSecure)
-$agentPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($agentPointer)
+$agentPassword = & "$kitRoot\scripts\Get-CaldovaDatabasePassword.ps1" `
+    -ProjectRoot $kitRoot `
+    -CredentialName 'CALDOVA_AGENT_PASSWORD' `
+    -Prompt 'Password for caldova_agent'
 
 try {
     az account set --subscription $subscriptionId
@@ -83,8 +84,5 @@ try {
 }
 finally {
     Remove-Item Env:AZURE_DEV_USER_AGENT -ErrorAction SilentlyContinue
-    if ($agentPointer -ne [IntPtr]::Zero) {
-        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($agentPointer)
-    }
     $agentPassword = $null
 }
