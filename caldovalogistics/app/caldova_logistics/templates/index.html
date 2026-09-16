@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Caldova Control Tower</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/app.css') }}">
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand"><span class="brand-mark">C</span><strong>Caldova Logistics</strong></div>
+        <span class="service-state"><i></i> HorizonDB online</span>
+    </header>
+
+    <main>
+        <section class="workspace-heading">
+            <div>
+                <p class="eyebrow">Network operations</p>
+                <h1>Control Tower</h1>
+            </div>
+            <div class="routed-action">
+                <span class="endpoint-badge endpoint-primary">Primary</span>
+                <button class="primary" type="button" data-open-dialog>New shipment</button>
+            </div>
+        </section>
+
+        <section class="search-band" aria-labelledby="guide-heading">
+            <div>
+                <p class="eyebrow">Operations intelligence</p>
+                <h2 id="guide-heading">Find handling guidance</h2>
+                <span class="endpoint-badge endpoint-reader">Reader</span>
+            </div>
+            <form method="get" action="/">
+                <label class="sr-only" for="q">Search operations guides</label>
+                <input id="q" name="q" value="{{ query }}" placeholder="Describe the operational problem" autocomplete="off">
+                <select name="mode" aria-label="Search mode">
+                    <option value="keyword" {% if mode == 'keyword' %}selected{% endif %}>PostgreSQL text</option>
+                    <option value="hybrid" {% if mode == 'hybrid' %}selected{% endif %}>HorizonDB hybrid AI</option>
+                </select>
+                <button class="primary" type="submit">Search</button>
+            </form>
+        </section>
+
+        {% if query %}
+        <section class="results" aria-live="polite">
+            <div class="section-heading">
+                <h2>Guidance results</h2>
+                <div class="section-meta">
+                    <span class="endpoint-badge endpoint-reader">Reader</span>
+                    <span>{{ results|length }} matches via {{ mode }}</span>
+                </div>
+            </div>
+            {% if results %}
+                {% for result in results %}
+                <article class="result-row">
+                    <span class="guide-number">G-{{ "%03d"|format(result.guide_id) }}</span>
+                    <div><h3>{{ result.title }}</h3><p>{{ result.summary }}</p></div>
+                    <div class="result-meta"><strong>{{ result.category }}</strong><small>score {{ "%.4f"|format(result.score) }}</small></div>
+                </article>
+                {% endfor %}
+                {% if mode == 'hybrid' and not briefing %}
+                <form class="briefing-action" method="post" action="/briefings">
+                    <input type="hidden" name="query" value="{{ query }}">
+                    <button class="primary" type="submit">Generate cited briefing</button>
+                </form>
+                {% endif %}
+            {% else %}
+                <p class="empty-state">No useful literal match. Switch to hybrid AI search to retrieve guidance by meaning.</p>
+            {% endif %}
+        </section>
+        {% endif %}
+
+        {% if briefing %}
+        <section class="briefing" aria-labelledby="briefing-heading">
+            <div class="section-heading">
+                <div><p class="eyebrow">Grounded generation</p><h2 id="briefing-heading">Incident briefing</h2></div>
+                <div class="section-meta">
+                    <span class="endpoint-badge endpoint-reader">Reader</span>
+                    <span>{{ briefing.evidence|length }} cited guides</span>
+                </div>
+            </div>
+            <p>{{ briefing.text }}</p>
+        </section>
+        {% endif %}
+
+        <section class="incident-strip{% if recovery_plan %} incident-{{ recovery_plan.status|lower }}{% endif %}">
+            <div class="incident-code">CLD-2026-0911-001</div>
+            <div class="incident-summary">
+                {% if recovery_plan and recovery_plan.status == 'Executed' %}
+                <strong>Quality hold placed at {{ recovery_plan.target_facility_code }}</strong>
+                <span>Shipment remains Delayed · Transfer {{ recovery_plan.transfer_status }} · Notification {{ recovery_plan.notification_status }}</span>
+                {% elif recovery_plan and recovery_plan.status == 'Approved' %}
+                <strong>Recovery approved for {{ recovery_plan.target_facility_code }}</strong>
+                <span>Awaiting guarded execution · 11.4 C observed against an 8 C maximum</span>
+                {% elif recovery_plan and recovery_plan.status == 'Proposed' %}
+                <strong>Recovery plan awaiting approval</strong>
+                <span>{{ recovery_plan.target_facility_code }} cold storage · Guide G-{{ "%03d"|format(recovery_plan.guidance_id) }}</span>
+                {% else %}
+                <strong>Cold-chain exception at DEN1</strong>
+                <span>11.4 C observed against an 8 C maximum</span>
+                {% endif %}
+            </div>
+            <div class="incident-actions">
+                <div class="incident-labels">
+                    <span class="critical-label">Critical</span>
+                    {% if recovery_plan %}<span class="recovery-label">{{ recovery_plan.status }}</span>{% endif %}
+                </div>
+                {% if not recovery_plan %}
+                <form method="post" action="/agent" data-investigate-form>
+                    <input type="hidden" name="question" value="Investigate shipment CLD-2026-0911-001. Explain the cold-chain incident using measured facts, find a capable facility, and recommend the approved handling response.">
+                    <div class="agent-action-route">
+                        <div class="route-badges">
+                            <span class="endpoint-badge endpoint-reader">Reader</span>
+                            <span class="endpoint-badge endpoint-primary">Primary</span>
+                        </div>
+                        <button class="primary" type="submit" data-investigate-submit>Investigate &amp; propose</button>
+                    </div>
+                </form>
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="agent-panel" aria-labelledby="agent-heading">
+            <div class="agent-intro">
+                <p class="eyebrow">Governed operations agent</p>
+                <h2 id="agent-heading">Ask Caldova Agent</h2>
+                <div class="agent-routes">
+                    <span class="endpoint-badge endpoint-reader">Reader</span>
+                    <span class="endpoint-badge endpoint-primary">Primary</span>
+                </div>
+                <p>The agent gathers governed evidence, proposes a recovery plan, and acts only after operator approval.</p>
+            </div>
+            <form id="agent-form" method="post" action="/agent">
+                <label class="sr-only" for="agent-question">Ask about a logistics incident</label>
+                <textarea id="agent-question" name="question" rows="3" required>What happened to CLD-2026-0911-001, where should it go, and what approved handling guidance applies?</textarea>
+                <div class="agent-action-route">
+                    <div class="route-badges">
+                        <span class="endpoint-badge endpoint-reader">Reader</span>
+                        <span class="endpoint-badge endpoint-primary">Primary</span>
+                    </div>
+                    <button class="primary" type="submit" data-agent-submit>Ask agent</button>
+                </div>
+                <p class="agent-progress" data-agent-progress aria-live="polite" hidden>Investigating shipment and approved guidance...</p>
+            </form>
+            {% if agent_answer %}
+            <div class="agent-response" aria-live="polite">
+                <span>Agent response</span>
+                <p>{{ agent_answer }}</p>
+            </div>
+            {% endif %}
+            {% if agent_error %}
+            <p class="agent-error" role="alert">{{ agent_error }}</p>
+            {% endif %}
+            {% if recovery_plan %}
+            <div class="recovery-plan" data-plan-status="{{ recovery_plan.status }}">
+                <div class="recovery-plan-heading">
+                    <div>
+                        <span>Recovery plan</span>
+                        <strong>{{ recovery_plan.status }}</strong>
+                    </div>
+                    <code>{{ recovery_plan.plan_id }}</code>
+                </div>
+                <dl>
+                    <div><dt>Shipment</dt><dd>{{ recovery_plan.tracking_number }}</dd></div>
+                    <div><dt>Destination</dt><dd>{{ recovery_plan.target_facility_code }} · {{ recovery_plan.target_facility_name }}</dd></div>
+                    <div><dt>Guidance</dt><dd>G-{{ "%03d"|format(recovery_plan.guidance_id) }} · {{ recovery_plan.guidance_title }}</dd></div>
+                </dl>
+                <p>{{ recovery_plan.rationale }}</p>
+                {% if recovery_plan.status != 'Executed' %}
+                <form class="approval-action" method="post" action="/agent/plans/{{ recovery_plan.plan_id }}/approve">
+                    <span class="endpoint-badge endpoint-primary">Primary</span>
+                    <button class="primary" type="submit" data-approval-submit>
+                        {% if recovery_plan.status == 'Approved' %}Retry execution{% else %}Approve &amp; execute{% endif %}
+                    </button>
+                    <small>Operator approval is required. Execution is idempotent.</small>
+                </form>
+                {% else %}
+                <div class="execution-proof">
+                    <strong>Recovery executed</strong>
+                    <span>Quality hold placed · Transfer {{ recovery_plan.transfer_status }} · Notification {{ recovery_plan.notification_status }}</span>
+                </div>
+                <form class="reset-action" method="post" action="/agent/reset">
+                    <button class="secondary" type="submit">Reset demo</button>
+                </form>
+                {% endif %}
+            </div>
+            {% endif %}
+        </section>
+
+        <section>
+            <div class="section-heading">
+                <h2>Active shipments</h2>
+                <div class="section-meta">
+                    <span class="endpoint-badge endpoint-reader">Reader</span>
+                    <span>{{ shipments|length }} recent</span>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Tracking</th><th>Customer</th><th>Route</th><th>Cargo</th><th>Priority</th><th>Status</th><th>Latest event</th></tr></thead>
+                    <tbody>
+                    {% for shipment in shipments %}
+                        <tr>
+                            <td class="tracking">{{ shipment.tracking_number }}</td>
+                            <td>{{ shipment.customer_name }}</td>
+                            <td>{{ shipment.origin_code }} <span class="route-arrow">to</span> {{ shipment.destination_code }}</td>
+                            <td>{{ shipment.cargo_profile.get('cargo', 'General freight') }}</td>
+                            <td><span class="priority priority-{{ shipment.priority|lower }}">{{ shipment.priority }}</span></td>
+                            <td>{{ shipment.status }}</td>
+                            <td>{{ shipment.latest_event_type or 'Booked' }}</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <dialog id="shipment-dialog">
+        <form method="post" action="/shipments">
+            <div class="dialog-heading"><div><p class="eyebrow">PostgreSQL transaction</p><h2>Create shipment</h2><span class="endpoint-badge endpoint-primary">Primary</span></div><button class="icon-button" type="button" data-close-dialog title="Close">&times;</button></div>
+            <label>Tracking number<input name="tracking_number" value="CLD-2026-DEMO-004" required></label>
+            <label>Customer<input name="customer_name" value="Contoso Outdoor" required></label>
+            <div class="field-pair">
+                <label>Origin<input name="origin_code" value="SEA1" required></label>
+                <label>Destination<input name="destination_code" value="ATL1" required></label>
+            </div>
+            <label>Cargo<input name="cargo_name" value="Navigation devices" required></label>
+            <label>Priority<select name="priority"><option>Standard</option><option selected>Expedited</option><option>Critical</option></select></label>
+            <div class="dialog-actions"><button class="secondary" type="button" data-close-dialog>Cancel</button><button class="primary" type="submit">Create shipment</button></div>
+        </form>
+    </dialog>
+
+    <script>
+        const dialog = document.querySelector('#shipment-dialog');
+        document.querySelector('[data-open-dialog]').addEventListener('click', () => dialog.showModal());
+        document.querySelectorAll('[data-close-dialog]').forEach((button) => button.addEventListener('click', () => dialog.close()));
+        const agentForm = document.querySelector('#agent-form');
+        agentForm.addEventListener('submit', () => {
+            const submitButton = agentForm.querySelector('[data-agent-submit]');
+            submitButton.disabled = true;
+            submitButton.textContent = 'Investigating...';
+            agentForm.querySelector('[data-agent-progress]').hidden = false;
+            agentForm.setAttribute('aria-busy', 'true');
+        });
+        document.querySelectorAll('[data-investigate-form]').forEach((form) => {
+            form.addEventListener('submit', () => {
+                const button = form.querySelector('[data-investigate-submit]');
+                button.disabled = true;
+                button.textContent = 'Investigating...';
+                form.setAttribute('aria-busy', 'true');
+            });
+        });
+        document.querySelectorAll('[data-approval-submit]').forEach((button) => {
+            button.form.addEventListener('submit', () => {
+                button.disabled = true;
+                button.textContent = 'Executing approved plan...';
+            });
+        });
+    </script>
+</body>
+</html>

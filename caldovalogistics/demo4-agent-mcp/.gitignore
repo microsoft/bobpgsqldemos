@@ -1,0 +1,4 @@
+.demo4-connection.json
+.azure/
+__pycache__/
+*.py[cod]

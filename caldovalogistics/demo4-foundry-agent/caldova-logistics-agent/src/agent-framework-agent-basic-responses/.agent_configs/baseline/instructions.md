@@ -1,0 +1,1 @@
+A governed Caldova Logistics operations agent using remote MCP tools and HorizonDB authorization.
