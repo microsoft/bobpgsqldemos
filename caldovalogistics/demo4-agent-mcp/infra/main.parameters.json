@@ -1,0 +1,30 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environmentName": {
+      "value": "${AZURE_ENV_NAME}"
+    },
+    "location": {
+      "value": "${AZURE_LOCATION}"
+    },
+    "databaseHost": {
+      "value": "${CALDOVA_AGENT_DATABASE_HOST}"
+    },
+    "databaseWriteHost": {
+      "value": "${CALDOVA_AGENT_DATABASE_WRITE_HOST}"
+    },
+    "databaseName": {
+      "value": "${CALDOVA_AGENT_DATABASE_NAME}"
+    },
+    "databaseUser": {
+      "value": "${CALDOVA_AGENT_DATABASE_USER}"
+    },
+    "databasePassword": {
+      "value": "${CALDOVA_AGENT_DATABASE_PASSWORD}"
+    },
+    "foundryAccountName": {
+      "value": "${CALDOVA_FOUNDRY_ACCOUNT_NAME}"
+    }
+  }
+}

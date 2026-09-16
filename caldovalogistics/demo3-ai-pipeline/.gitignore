@@ -1,0 +1,4 @@
+.pipeline-connection.json
+.venv/
+__pycache__/
+*.py[cod]
