@@ -8,6 +8,10 @@ Caldova Control Tower is a working logistics operations application and a five-p
 4. **Agents can work through governed PostgreSQL tools.** Use a remote MCP server and a least-privilege PostgreSQL role for fixed, read-only workflows.
 5. **The complete service can be operated and observed.** Generate a recognizable workload and inspect it with the VS Code PostgreSQL dashboard and Azure Monitor.
 
+A separate App Service app, [Caldova Knowledge Hub](demo6-vector-app/README.md),
+shows vector search kept current automatically by an `on_change` AI pipeline and
+a pg_durable workflow, with the live pipeline beside the app.
+
 The running incident is a temperature-sensitive shipment delayed at the Denver hub. An operator observes the exception, locates qualified handling guidance, and produces a grounded response briefing.
 
 > **Talk message:** Azure HorizonDB is the PostgreSQL you know and love, powered by the scale, security, and availability of Azure.
@@ -41,6 +45,7 @@ The application is intentionally conventional: Python 3.11+, FastAPI, server-ren
 | `sql/03-enable-ai.sql` | Preview extensions, embeddings, BM25, and DiskANN setup |
 | `sql/04-ai-hybrid-search.sql` | Hybrid RRF retrieval and grounded briefing demo |
 | `sql/05-verify.sql` | Database objects, data, extensions, and index checks |
+| `demo6-vector-app/` | Knowledge Hub App Service app: vector/keyword/hybrid search, `on_change` AI pipeline, pg_durable reconciler, live pipeline view |
 
 ## Prerequisites
 

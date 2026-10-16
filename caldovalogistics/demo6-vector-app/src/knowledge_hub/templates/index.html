@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Caldova Knowledge Hub</title>
+    <link rel="stylesheet" href="/static/app.css">
+</head>
+<body class="debug-open">
+    <header class="topbar">
+        <div class="brand"><span class="brand-mark" aria-hidden="true">C</span><strong>Caldova Knowledge Hub</strong></div>
+        <div class="topbar-actions">
+            <span class="platform">Azure HorizonDB · AI pipeline · pg_durable</span>
+            <button class="debug-toggle" type="button" data-debug-toggle aria-controls="pipeline-pane" aria-expanded="true">Hide pipeline</button>
+        </div>
+    </header>
+
+    <div class="workspace">
+        <main class="app-pane">
+            <section class="search-panel" aria-labelledby="search-heading">
+                <p class="eyebrow">Operations knowledge</p>
+                <h1 id="search-heading">Find the right procedure</h1>
+                <form class="search-form" method="get" action="/">
+                    <label class="sr-only" for="q">Describe the situation</label>
+                    <input id="q" name="q" value="{{ query }}" placeholder="e.g. our truck fridge died on the highway" autocomplete="off" required>
+                    <input type="hidden" name="mode" value="{{ mode }}">
+                    <button class="primary" type="submit">Search</button>
+                </form>
+                <nav class="mode-tabs" aria-label="Search method">
+                    {% set labels = {'vector': ('Vector', 'meaning · DiskANN'), 'keyword': ('Keyword', 'BM25 · pg_textsearch'), 'hybrid': ('Hybrid', 'RRF of both')} %}
+                    {% for option in modes %}
+                    <a class="mode-tab{% if option == mode %} is-active{% endif %}" href="/?{{ {'q': query, 'mode': option}|urlencode }}"{% if option == mode %} aria-current="page"{% endif %}>
+                        <strong>{{ labels[option][0] }}</strong><small>{{ labels[option][1] }}</small>
+                    </a>
+                    {% endfor %}
+                </nav>
+            </section>
+
+            {% for message in messages %}
+            <p class="notice notice-error" role="alert">{{ message }}</p>
+            {% endfor %}
+
+            {% if watch %}
+            <p class="notice notice-watch" data-watch="{{ watch }}" role="status" aria-live="polite">
+                Article saved. The <code>on_change</code> pipeline is embedding it now…
+            </p>
+            {% endif %}
+
+            {% if query %}
+            <section class="results" aria-labelledby="results-heading" aria-live="polite">
+                <div class="section-heading">
+                    <h2 id="results-heading">{{ results|length }} result{{ '' if results|length == 1 else 's' }} for “{{ query }}”</h2>
+                    <span class="endpoint">Reader endpoint</span>
+                </div>
+                {% for result in results %}
+                <article class="result">
+                    <span class="rank">{{ loop.index }}</span>
+                    <div>
+                        <h3>{{ result.title }}</h3>
+                        <p>{{ result.snippet|truncate(240) }}</p>
+                        <small>{{ result.category }}{% if mode == 'hybrid' %} · vector rank {{ result.vector_rank or '—' }} · keyword rank {{ result.keyword_rank or '—' }}{% endif %}</small>
+                    </div>
+                    <div class="score"><strong>{{ "%.3f"|format(result.score) if mode != 'hybrid' else "%.4f"|format(result.score) }}</strong><small>{{ result.score_label }}</small></div>
+                </article>
+                {% else %}
+                <p class="empty">No {{ 'keyword' if mode == 'keyword' else '' }} matches. {% if mode == 'keyword' %}Keywords need the same words; try <a href="/?{{ {'q': query, 'mode': 'vector'}|urlencode }}">vector search</a>, which matches meaning.{% endif %}</p>
+                {% endfor %}
+            </section>
+            {% endif %}
+
+            <section class="articles" aria-labelledby="articles-heading">
+                <div class="section-heading">
+                    <div>
+                        <h2 id="articles-heading">Knowledge articles</h2>
+                        <small>Edits are picked up automatically by the AI pipeline.</small>
+                    </div>
+                    <div class="actions">
+                        <form method="post" action="/reset"><button class="secondary" type="submit">Reset demo</button></form>
+                        <a class="button primary" href="/?{{ {'q': query, 'mode': mode, 'new': 1}|urlencode }}">New article</a>
+                    </div>
+                </div>
+                <ul class="article-list">
+                    {% for article in articles %}
+                    <li class="article{% if watch == article.article_id %} is-watched{% endif %}" data-article-id="{{ article.article_id }}">
+                        <div>
+                            <h3>{{ article.title }}</h3>
+                            <small>{{ article.category }} · {{ article.author }}</small>
+                        </div>
+                        <span class="freshness {{ 'is-ready' if article.searchable else 'is-pending' }}" data-freshness>
+                            {% if article.searchable %}Searchable · {{ article.embedded_chunks }} chunk{{ '' if article.embedded_chunks == 1 else 's' }}{% else %}Embedding {{ article.embedded_chunks }}/{{ article.expected_chunks }}{% endif %}
+                        </span>
+                        <div class="row-actions">
+                            <a href="/?{{ {'q': query, 'mode': mode, 'edit': article.article_id}|urlencode }}">Edit</a>
+                            <form method="post" action="/articles/{{ article.article_id }}/delete">
+                                <input type="hidden" name="q" value="{{ query }}"><input type="hidden" name="mode" value="{{ mode }}">
+                                <button class="link danger" type="submit" aria-label="Delete {{ article.title }}">Delete</button>
+                            </form>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </section>
+        </main>
+
+        {% include "pipeline.html" %}
+    </div>
+
+    <dialog id="editor" {% if show_editor %}data-open{% endif %} aria-labelledby="editor-heading">
+        <form method="post" action="/articles">
+            <div class="dialog-heading">
+                <h2 id="editor-heading">{{ 'Edit article' if editing else 'New article' }}</h2>
+                <a class="close" href="/?{{ {'q': query, 'mode': mode}|urlencode }}" aria-label="Close">&times;</a>
+            </div>
+            {% if editing %}<input type="hidden" name="article_id" value="{{ editing.article_id }}">{% endif %}
+            <input type="hidden" name="q" value="{{ query }}"><input type="hidden" name="mode" value="{{ mode }}">
+            <label>Title<input name="title" value="{{ editing.title if editing else '' }}" minlength="3" maxlength="160" required></label>
+            <label>Category
+                <select name="category">
+                    {% for category in categories %}<option{% if editing and editing.category == category %} selected{% endif %}>{{ category }}</option>{% endfor %}
+                </select>
+            </label>
+            <label>Content<textarea name="content" rows="9" minlength="20" maxlength="20000" required>{{ editing.content if editing else '' }}</textarea></label>
+            <label>Author<input name="author" value="{{ editing.author if editing else 'Control Tower Operator' }}" maxlength="80"></label>
+            <div class="dialog-actions">
+                <a class="button secondary" href="/?{{ {'q': query, 'mode': mode}|urlencode }}">Cancel</a>
+                <button class="primary" type="submit">Save &amp; embed</button>
+            </div>
+        </form>
+    </dialog>
+
+    <script id="initial-status" type="application/json">{{ initial_status|tojson }}</script>
+    <script src="/static/app.js" defer></script>
+</body>
+</html>

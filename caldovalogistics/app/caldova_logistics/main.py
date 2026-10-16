@@ -16,6 +16,7 @@ from fastapi.templating import Jinja2Templates
 from caldova_logistics.agent import CaldovaAgentService
 from caldova_logistics.database import Database
 from caldova_logistics.models import ConnectionPath, GuideResult, IncidentBriefing, RecoveryPlan, Shipment
+from caldova_logistics.pipeline_source import load_pipeline_source
 from caldova_logistics.repository import LogisticsRepository
 
 
@@ -116,6 +117,7 @@ def create_app(
                 "agent_answer": agent_answer,
                 "agent_error": agent_error,
                 "recovery_plan": visible_plan,
+                "pipeline_source": load_pipeline_source(),
             },
         )
 

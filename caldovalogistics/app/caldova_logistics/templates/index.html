@@ -9,7 +9,10 @@
 <body>
     <header class="topbar">
         <div class="brand"><span class="brand-mark">C</span><strong>Caldova Logistics</strong></div>
-        <span class="service-state"><i></i> HorizonDB online</span>
+        <div class="topbar-actions">
+            <span class="service-state"><i></i> HorizonDB online</span>
+            <button class="debug-toggle" type="button" data-debug-toggle aria-controls="debug-drawer" aria-expanded="false" hidden>Debug</button>
+        </div>
     </header>
 
     <main>
@@ -216,6 +219,8 @@
         </section>
     </main>
 
+    {% include "pipeline.html" %}
+
     <dialog id="shipment-dialog">
         <form method="post" action="/shipments">
             <div class="dialog-heading"><div><p class="eyebrow">PostgreSQL transaction</p><h2>Create shipment</h2><span class="endpoint-badge endpoint-primary">Primary</span></div><button class="icon-button" type="button" data-close-dialog title="Close">&times;</button></div>
@@ -231,6 +236,7 @@
         </form>
     </dialog>
 
+    <script src="{{ url_for('static', path='/pipeline.js') }}" defer></script>
     <script>
         const dialog = document.querySelector('#shipment-dialog');
         document.querySelector('[data-open-dialog]').addEventListener('click', () => dialog.showModal());

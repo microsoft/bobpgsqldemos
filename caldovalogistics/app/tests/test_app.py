@@ -1,5 +1,6 @@
 from dataclasses import replace
 from datetime import UTC, datetime
+from pathlib import Path
 from uuid import UUID
 
 import pytest
@@ -7,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from caldova_logistics.main import create_app
 from caldova_logistics.models import ConnectionPath, GuideResult, IncidentBriefing, RecoveryPlan, Shipment
+from caldova_logistics.pipeline_source import load_pipeline_source
 
 
 class FakeRepository:
@@ -207,6 +209,94 @@ def test_home_lists_shipments() -> None:
     assert "PID 4101" not in response.text
     assert 'endpoint-badge endpoint-primary">Primary' in response.text
     assert 'endpoint-badge endpoint-reader">Reader' in response.text
+
+
+@pytest.mark.parametrize(
+    ("path", "form"),
+    [
+        ("/", None),
+        ("/?q=cooling&mode=hybrid", None),
+        ("/briefings", {"query": "cooling equipment stopped"}),
+        ("/agent", {"question": "Investigate CLD-2026-0911-001"}),
+    ],
+)
+def test_debug_drawer_is_hidden_and_available_across_app_workflows(
+    path: str, form: dict[str, str] | None
+) -> None:
+    with TestClient(create_app(FakeRepository(), FakeAgentService())) as client:
+        response = client.get(path) if form is None else client.post(path, data=form)
+
+    assert response.status_code == 200
+    assert 'data-debug-toggle aria-controls="debug-drawer" aria-expanded="false" hidden' in response.text
+    assert 'id="debug-drawer"' in response.text
+    assert 'data-pipeline data-state="ready" hidden' in response.text
+    assert "Illustrative &middot; not live telemetry" in response.text
+    assert response.text.count("data-pipeline-stage=") == 5
+    for stage in ("source", "chunk", "embed", "sink", "index"):
+        assert f'data-code-stage="{stage}"' in response.text
+    assert "demo3-ai-pipeline/sql/01-create-pipeline.sql" in response.text
+    assert "data-pipeline-play" in response.text
+    assert "data-pipeline-replay" in response.text
+    assert "data-pipeline-loop" in response.text
+    assert "/static/pipeline.js" in response.text
+
+
+def test_pipeline_source_maps_real_sql_to_animation_stages() -> None:
+    source = load_pipeline_source()
+    lines_by_stage: dict[str, list[str]] = {}
+    for line in source.lines:
+        if line.stage:
+            lines_by_stage.setdefault(line.stage, []).append(line.text.strip())
+
+    assert source.error == ""
+    assert "ai.table_source(" in lines_by_stage["source"][0]
+    assert lines_by_stage["source"][-1] == "),"
+    assert "ai.chunk(" in lines_by_stage["chunk"][0]
+    assert "overlap => 32" in lines_by_stage["chunk"]
+    assert "ai.embed(" in lines_by_stage["embed"][0]
+    assert "model => 'caldova-embedding'," in lines_by_stage["embed"]
+    assert lines_by_stage["embed"][-1] == ")"
+    assert any("CREATE TABLE IF NOT EXISTS operations_guide_chunk" in text for text in lines_by_stage["sink"])
+    assert any("ai.table_sink(" in text for text in lines_by_stage["sink"])
+    assert "USING diskann (embedding vector_cosine_ops)" in lines_by_stage["index"]
+    assert not any("ai.create_pipeline" in text for texts in lines_by_stage.values() for text in texts)
+
+
+def test_pipeline_source_renders_escaped_sql(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    sql_path = tmp_path / "pipeline.sql"
+    sql_path.write_text("SELECT '<script>' AS sample;\nSELECT ai.chunk(\n    input => 'content'\n);\n", encoding="utf-8")
+    monkeypatch.setenv("CALDOVA_PIPELINE_SQL", str(sql_path))
+
+    with TestClient(create_app(FakeRepository())) as client:
+        response = client.get("/")
+
+    assert "&#39;&lt;script&gt;&#39;" in response.text
+    assert "<script>' AS sample" not in response.text
+    assert response.text.count('data-code-stage="chunk"') == 3
+
+
+def test_missing_pipeline_source_keeps_app_available(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CALDOVA_PIPELINE_SQL", str(tmp_path / "missing.sql"))
+
+    with TestClient(create_app(FakeRepository())) as client:
+        response = client.get("/")
+
+    assert response.status_code == 200
+    assert "CLD-2026-0911-001" in response.text
+    assert "Pipeline SQL is unavailable" in response.text
+
+
+def test_pipeline_assets_are_served() -> None:
+    with TestClient(create_app(FakeRepository())) as client:
+        script = client.get("/static/pipeline.js")
+        stylesheet = client.get("/static/app.css")
+
+    assert script.status_code == 200
+    assert "prefers-reduced-motion" in script.text
+    assert "caldova-debug-open" in script.text
+    assert stylesheet.status_code == 200
+    assert ".debug-drawer" in stylesheet.text
+    assert "body.debug-open main" in stylesheet.text
 
 
 def test_hybrid_search_displays_results() -> None:

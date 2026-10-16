@@ -7,7 +7,7 @@ Demo examples from Bob Ward for Azure PostgreSQL and HorizonDB.
 ### Caldova Logistics on Azure HorizonDB
 
 [`caldovalogistics/`](caldovalogistics/) contains a working Python, FastAPI, and
-PostgreSQL logistics control tower plus five Azure HorizonDB demonstrations:
+PostgreSQL logistics control tower plus six Azure HorizonDB demonstrations:
 
 1. **This Is PostgreSQL** - Standard SQL, psycopg, JSONB, transactions,
    full-text search, and query plans.
@@ -19,6 +19,9 @@ PostgreSQL logistics control tower plus five Azure HorizonDB demonstrations:
    remote MCP server, least-privilege PostgreSQL tools, and human approval.
 5. **Production Evidence and Observability** - A controlled four-lane workload
    inspected through the VS Code PostgreSQL dashboards.
+6. **Knowledge Hub on App Service** - Vector, keyword, and hybrid search kept
+   current by an `on_change` AI pipeline and a pg_durable workflow, with the
+   live pipeline shown beside the app.
 
 The folder includes the application, schema and seed data, deployment and
 preflight automation, AI pipeline assets, MCP infrastructure, Foundry agent

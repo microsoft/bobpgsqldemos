@@ -1,0 +1,50 @@
+<aside id="pipeline-pane" class="pipeline-pane" aria-labelledby="pipeline-heading" data-pipeline>
+    <header class="pipeline-header">
+        <div>
+            <p class="eyebrow">Behind the search · live from HorizonDB</p>
+            <h2 id="pipeline-heading">AI pipeline in action</h2>
+        </div>
+        <span class="run-pill" data-run-pill>Connecting…</span>
+    </header>
+
+    <section class="code-pane" aria-labelledby="code-heading">
+        <div class="pane-heading">
+            <h3 id="code-heading">Code</h3>
+            <div class="code-tabs" role="tablist" aria-label="Code views">
+                <button type="button" role="tab" aria-selected="true" aria-controls="code-pipeline" id="tab-pipeline" data-code-tab>ai.create_pipeline</button>
+                <button type="button" role="tab" aria-selected="false" aria-controls="code-reconciler" id="tab-reconciler" data-code-tab tabindex="-1">pg_durable reconciler</button>
+            </div>
+        </div>
+        <pre id="code-pipeline" class="code" role="tabpanel" aria-labelledby="tab-pipeline" tabindex="0" data-code><code>{% for line in code_lines %}<span class="code-line"{% if line.stage %} data-code-stage="{{ line.stage }}"{% endif %}><span class="ln" aria-hidden="true">{{ line.number }}</span><span>{{ line.text }}</span></span>{% endfor %}</code></pre>
+        <pre id="code-reconciler" class="code" role="tabpanel" aria-labelledby="tab-reconciler" tabindex="0" hidden><code>{% for text in reconciler_sql.splitlines() %}<span class="code-line"><span class="ln" aria-hidden="true">{{ loop.index }}</span><span>{{ text }}</span></span>{% endfor %}</code></pre>
+    </section>
+
+    <section class="flow-pane" aria-labelledby="flow-heading">
+        <div class="pane-heading">
+            <h3 id="flow-heading">Pipeline run</h3>
+            <span class="caption" data-caption aria-live="polite"></span>
+        </div>
+        <ol class="flow" aria-label="Pipeline stages">
+            {% for stage in stages %}
+            <li class="stage" data-stage="{{ stage.key }}">
+                <span class="dot" aria-hidden="true"></span>
+                <strong>{{ stage.title }}</strong>
+                <small>{{ stage.detail }}</small>
+                <em data-stage-time></em>
+            </li>
+            {% endfor %}
+        </ol>
+        <dl class="facts">
+            <div><dt>Run</dt><dd data-fact="run">—</dd></div>
+            <div><dt>Rows</dt><dd data-fact="rows">—</dd></div>
+            <div><dt>Duration</dt><dd data-fact="duration">—</dd></div>
+            <div><dt>pg_durable instance</dt><dd data-fact="instance">—</dd></div>
+        </dl>
+        <div class="meters">
+            <div class="meter"><span>Searchable articles</span><strong data-fact="articles">—</strong></div>
+            <div class="meter"><span>Embedded chunks</span><strong data-fact="chunks">—</strong></div>
+            <div class="meter"><span>Reconciler (pg_durable)</span><strong data-fact="reconciler">—</strong></div>
+        </div>
+        <div class="history" aria-label="Recent pipeline runs" data-history></div>
+    </section>
+</aside>

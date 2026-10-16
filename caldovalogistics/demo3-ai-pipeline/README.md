@@ -41,6 +41,16 @@ to this repository.
 The keynote tease should stop after the pipeline graph and populated sink. The
 breakout continues into DiskANN and hybrid retrieval.
 
+### App-side presentation
+
+The Control Tower opens in its normal layout. Select **Debug** to open a
+right-side view with the real `sql/01-create-pipeline.sql` definition above an
+animated pipeline. Each animated step highlights its matching SQL. Use the
+Play/Pause, Replay, and Loop controls to narrate ingestion while the app stays
+visible on wide screens. This is a clearly labeled illustrative animation, not
+execution telemetry: it does not start `caldova-guide-pipeline` or report live
+counts or status. Use the steps above to prove the real pipeline execution.
+
 ## Validated Baseline
 
 - Foundry resource: `caldova-logistics-ai` in `westus3`

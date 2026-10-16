@@ -1,0 +1,73 @@
+<aside id="debug-drawer" class="debug-drawer" aria-labelledby="debug-heading" data-pipeline data-state="ready" hidden>
+    <header class="debug-header">
+        <div>
+            <p class="eyebrow">Debug view</p>
+            <h2 id="debug-heading" tabindex="-1">AI pipeline</h2>
+        </div>
+        <span class="pipeline-mode">Illustrative &middot; not live telemetry</span>
+        <button class="debug-close" type="button" data-debug-close aria-label="Close debug view">&times;</button>
+    </header>
+
+    <section class="debug-pane code-pane" aria-labelledby="pipeline-code-heading">
+        <div class="pane-heading">
+            <h3 id="pipeline-code-heading">Pipeline definition</h3>
+            <code>{{ pipeline_source.display_path }}</code>
+        </div>
+        {% if pipeline_source.error %}
+        <p class="pipeline-source-error" role="alert">{{ pipeline_source.error }}</p>
+        {% else %}
+        <pre class="pipeline-code" data-pipeline-code tabindex="0" aria-label="Pipeline SQL source"><code>{% for line in pipeline_source.lines %}<span class="code-line"{% if line.stage %} data-code-stage="{{ line.stage }}"{% endif %}><span class="line-number" aria-hidden="true">{{ line.number }}</span>                <span class="line-text">{{ line.text }}</span></span>{% endfor %}</code></pre>
+        {% endif %}
+    </section>
+
+    <section class="debug-pane animation-pane" aria-labelledby="pipeline-animation-heading">
+        <div class="pane-heading">
+            <h3 id="pipeline-animation-heading">Pipeline in action</h3>
+            <div class="pipeline-toolbar" role="group" aria-label="Pipeline playback">
+                <button class="pipeline-play" type="button" data-pipeline-play>Play</button>
+                <button class="pipeline-replay" type="button" data-pipeline-replay>Replay</button>
+                <label class="pipeline-loop"><input type="checkbox" data-pipeline-loop checked> Loop</label>
+            </div>
+        </div>
+        <ol class="pipeline-flow" aria-label="Native ingestion pipeline">
+            <li class="pipeline-node" data-pipeline-stage="source">
+                <span class="pipeline-step" aria-hidden="true">01</span>
+                <strong>Approved guides</strong>
+                <code>operations_guide</code>
+                <span class="pipeline-stage-state">Ready</span>
+            </li>
+            <li class="pipeline-node" data-pipeline-stage="chunk">
+                <span class="pipeline-step" aria-hidden="true">02</span>
+                <strong>Chunk</strong>
+                <code>ai.chunk</code>
+                <span class="pipeline-stage-state">Ready</span>
+            </li>
+            <li class="pipeline-node" data-pipeline-stage="embed">
+                <span class="pipeline-step" aria-hidden="true">03</span>
+                <strong>Embed</strong>
+                <code>ai.embed &rarr; Foundry</code>
+                <span class="pipeline-stage-state">Ready</span>
+            </li>
+            <li class="pipeline-node" data-pipeline-stage="sink">
+                <span class="pipeline-step" aria-hidden="true">04</span>
+                <strong>Vector chunks</strong>
+                <code>operations_guide_chunk</code>
+                <span class="pipeline-stage-state">Ready</span>
+            </li>
+            <li class="pipeline-node" data-pipeline-stage="index">
+                <span class="pipeline-step" aria-hidden="true">05</span>
+                <strong>Retrieval index</strong>
+                <code>DiskANN</code>
+                <span class="pipeline-stage-state">Ready</span>
+            </li>
+        </ol>
+        <div class="pipeline-progress-track" role="progressbar" aria-label="Illustrative pipeline progress" aria-valuemin="0" aria-valuemax="5" aria-valuenow="0">
+            <span data-pipeline-progress></span>
+        </div>
+        <div class="pipeline-narration" role="status" aria-live="polite" aria-atomic="true">
+            <strong data-pipeline-caption>Ready to follow a handling guide</strong>
+            <p data-pipeline-detail>Play the walkthrough to connect each pipeline step to the SQL above.</p>
+        </div>
+        <p class="pipeline-footnote">Presentation only. Playback does not run the pipeline, change data, or call a model. DiskANN indexes the sink table; it is not an additional pipeline step.</p>
+    </section>
+</aside>
